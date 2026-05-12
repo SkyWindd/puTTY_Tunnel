@@ -1,0 +1,5 @@
+*.ppk
+*.pem
+config.json
+tunnel.log
+publish/
