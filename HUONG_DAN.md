@@ -37,7 +37,7 @@
 ```
 publish\
 ├── SshTunnelManager.exe    ← file chính
-├── plink.exe               ← tải tại: https://the.earth.li/~sgtatham/putty/latest/w64/plink.exe
+├── plink.exe               ← tải tại: https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
 └── default_vps.ppk         ← file key AWS (nhận từ người phân phối app)
 ```
 
