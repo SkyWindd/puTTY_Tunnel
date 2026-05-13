@@ -1,2 +1,0 @@
-C:\Users\ghost\Downloads\SshTunnelManager_v5_source\SshTunnelManager\publish\SshTunnelManager.pdb
-C:\Users\ghost\Downloads\SshTunnelManager_v5_source\SshTunnelManager\publish\SshTunnelManager.exe
