@@ -95,37 +95,152 @@ public static class ConnectionHandler
 
     public static void PrintTunnelUsageGuide(AppConfig cfg)
     {
+        Console.Clear();
+        var sep = "  " + new string('═', 65);
+
+        // ── Header ──────────────────────────────────────────────────────
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine();
+        Console.WriteLine(sep);
+        Console.WriteLine("  ║          HƯỚNG DẪN SỬ DỤNG SSH TUNNEL MANAGER              ║");
+        Console.WriteLine(sep);
+        Console.ResetColor();
+
+        // ── Session info ─────────────────────────────────────────────────
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("\n  ┌─────────────────────────────────────────────────────────────────┐");
-        Console.WriteLine("  │                   HOW TO USE THIS TUNNEL                       │");
-        Console.WriteLine("  └─────────────────────────────────────────────────────────────────┘");
+        Console.WriteLine($"\n  📋 Session ID : \"{cfg.SessionId}\"");
+        Console.WriteLine($"  🖥  Vai trò    : {(cfg.Role == MachineRole.MachineA ? "Máy A — CLIENT (kết nối vào máy bạn bè)" : "Máy B — SERVER (máy đích, được kết nối vào)")}");
+        Console.WriteLine($"  🌐 VPS        : {cfg.Vps.Username}@{cfg.Vps.Host}");
         Console.ResetColor();
 
         if (cfg.Role == MachineRole.MachineB)
         {
-            Console.WriteLine("\n  Machine B (this machine) is the SERVER side.");
-            Console.WriteLine("  Action: This app pushes Reverse Tunnel(s) up to VPS.");
-            Console.WriteLine("  Your VPS exposes the following relay ports:");
-            foreach (var t in cfg.Tunnels)
-                Console.WriteLine($"    • {t.Name}: VPS port {t.VpsPort}  ←→  this machine port {t.RemotePort}");
-            Console.WriteLine("\n  Nothing else needed here — keep this app running.");
+            PrintGuideForMachineB(cfg);
         }
         else
         {
-            Console.WriteLine("\n  Machine A (this machine) is the CLIENT side.");
-            Console.WriteLine("  The following local ports are forwarded through the VPS to Machine B:");
-            foreach (var t in cfg.Tunnels)
-            {
-                Console.WriteLine($"\n  [{t.Name}]");
-                Console.WriteLine($"    localhost:{t.LocalPort}  →  VPS:{t.VpsPort}  →  MachineB:{t.RemotePort}");
-                if (t.Type == ConnectionType.SSH)
-                    Console.WriteLine($"    Open PuTTY → host=127.0.0.1  port={t.LocalPort}");
-                else if (t.Type == ConnectionType.RDP)
-                    Console.WriteLine($"    Open mstsc → 127.0.0.1:{t.LocalPort}");
-                else
-                    Console.WriteLine($"    Connect any app to localhost:{t.LocalPort}");
-            }
+            PrintGuideForMachineA(cfg);
         }
+
+        // ── Troubleshooting ───────────────────────────────────────────────
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("\n  " + new string('─', 65));
+        Console.WriteLine("  ❓ XỬ LÝ SỰ CỐ THƯỜNG GẶP");
+        Console.WriteLine("  " + new string('─', 65));
+        Console.ResetColor();
+        Console.WriteLine("  • Tunnel DOWN liên tục  → Kiểm tra kết nối internet, VPS có hoạt động không");
+        Console.WriteLine("  • PuTTY 'Connection refused' → Máy B chưa bật OpenSSH Server");
+        Console.WriteLine("  • PuTTY 'Network error'      → Tunnel chưa UP, chờ vài giây rồi thử lại");
+        Console.WriteLine("  • Đăng nhập 'Access denied'  → Sai username/password Windows của Máy B");
+        Console.WriteLine("  • Host key warning           → Chạy plink.exe thủ công 1 lần để accept key");
         Console.WriteLine();
+
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("  Nhấn Enter để quay lại menu...");
+        Console.ResetColor();
+        Console.ReadLine();
+    }
+
+    private static void PrintGuideForMachineB(AppConfig cfg)
+    {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("\n  " + new string('─', 65));
+        Console.WriteLine("  ✅ NHIỆM VỤ CỦA MÁY B (máy này)");
+        Console.WriteLine("  " + new string('─', 65));
+        Console.ResetColor();
+        Console.WriteLine("\n  Máy B đẩy Reverse Tunnel lên VPS để Máy A có thể kết nối vào.");
+        Console.WriteLine("  Bạn CHỈ CẦN giữ app này đang chạy — không cần làm gì thêm.\n");
+
+        Console.WriteLine("  Các cổng đang mở trên VPS cho session này:");
+        foreach (var t in cfg.Tunnels)
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"\n    [{t.Name}] ");
+            Console.ResetColor();
+            Console.WriteLine($"Máy này (port {t.RemotePort})  →  VPS relay port {t.VpsPort}");
+            if (t.Type == ConnectionType.SSH)
+                Console.WriteLine($"           Máy A sẽ SSH vào cổng này để điều khiển máy bạn");
+            else if (t.Type == ConnectionType.RDP)
+                Console.WriteLine($"           Máy A sẽ Remote Desktop vào cổng này");
+            else
+                Console.WriteLine($"           Máy A sẽ kết nối ứng dụng tùy chỉnh vào cổng này");
+        }
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("\n  ⚠  YÊU CẦU TRÊN MÁY B:");
+        Console.ResetColor();
+        Console.WriteLine("    • OpenSSH Server phải đang chạy (cho kết nối SSH)");
+        Console.WriteLine("      Kiểm tra: Get-Service sshd  (phải thấy Running)");
+        Console.WriteLine("      Bật:      Start-Service sshd  (chạy PowerShell Admin)");
+        Console.WriteLine("    • Tường lửa Windows phải cho phép port 22");
+        Console.WriteLine("    • Máy B phải có username + password (không được để trống password)");
+        Console.WriteLine("\n  ℹ  Chia sẻ thông tin sau cho người dùng Máy A:");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"    Session ID : {cfg.SessionId}");
+        Console.WriteLine($"    Username   : (username Windows của máy này)");
+        Console.WriteLine($"    Password   : (password Windows của máy này)");
+        Console.ResetColor();
+    }
+
+    private static void PrintGuideForMachineA(AppConfig cfg)
+    {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("\n  " + new string('─', 65));
+        Console.WriteLine("  ✅ CÁCH KẾT NỐI TỪ MÁY A (máy này)");
+        Console.WriteLine("  " + new string('─', 65));
+        Console.ResetColor();
+        Console.WriteLine("\n  Các cổng local dưới đây được forward xuyên VPS tới Máy B:\n");
+
+        foreach (var t in cfg.Tunnels)
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"  ┌─── [{t.Name}] " + new string('─', 48 - t.Name.Length) + "┐");
+            Console.ResetColor();
+            Console.WriteLine($"  │  Luồng: localhost:{t.LocalPort}  →  VPS:{t.VpsPort}  →  MáyB:{t.RemotePort}");
+
+            if (t.Type == ConnectionType.SSH)
+            {
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Cách kết nối bằng PuTTY:");
+                Console.WriteLine($"  │    1. Mở PuTTY");
+                Console.WriteLine($"  │    2. Host Name : 127.0.0.1");
+                Console.WriteLine($"  │    3. Port      : {t.LocalPort}");
+                Console.WriteLine($"  │    4. Connection type: SSH");
+                Console.WriteLine($"  │    5. Click Open → đăng nhập bằng user/pass Windows của Máy B");
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Hoặc chọn [5] → [1] trong menu để mở PuTTY tự động");
+            }
+            else if (t.Type == ConnectionType.RDP)
+            {
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Cách kết nối bằng Remote Desktop:");
+                Console.WriteLine($"  │    1. Nhấn Win+R → gõ: mstsc");
+                Console.WriteLine($"  │    2. Computer: 127.0.0.1:{t.LocalPort}");
+                Console.WriteLine($"  │    3. Click Connect → đăng nhập user/pass Windows Máy B");
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Lưu ý: Máy B phải dùng Windows Pro/Enterprise mới có RDP");
+                Console.WriteLine($"  │  Thay thế: Dùng VNC (TightVNC) nếu Máy B dùng Windows Home");
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Hoặc chọn [5] → [2] trong menu để mở mstsc tự động");
+            }
+            else
+            {
+                Console.WriteLine($"  │");
+                Console.WriteLine($"  │  Kết nối ứng dụng bất kỳ tới: localhost:{t.LocalPort}");
+                Console.WriteLine($"  │  Ví dụ VNC Viewer: kết nối tới 127.0.0.1:{t.LocalPort}");
+            }
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"  └" + new string('─', 62) + "┘");
+            Console.ResetColor();
+            Console.WriteLine();
+        }
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("  ⚠  ĐIỀU KIỆN ĐỂ KẾT NỐI THÀNH CÔNG:");
+        Console.ResetColor();
+        Console.WriteLine("    • Máy B phải đang chạy app này với Role = B, Tunnel RUNNING");
+        Console.WriteLine("    • Máy A (máy này) phải đang RUNNING (đã start tunnel)");
+        Console.WriteLine("    • Cả 2 máy phải dùng cùng Session ID: \"" + cfg.SessionId + "\"");
+        Console.WriteLine("    • Máy B phải có internet (dù khác mạng, khác IP đều được)");
     }
 }

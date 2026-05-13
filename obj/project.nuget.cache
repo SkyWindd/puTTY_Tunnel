@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "fNUBUI9aHxc=",
+  "dgSpecHash": "v7v9/27FrfA=",
   "success": true,
-  "projectFilePath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\SshTunnelManager.csproj",
+  "projectFilePath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\SshTunnelManager.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ghost\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.26\\microsoft.net.illink.tasks.8.0.26.nupkg.sha512",
     "C:\\Users\\ghost\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\SshTunnelManager.csproj": {}
+    "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\SshTunnelManager.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\SshTunnelManager.csproj": {
+    "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\SshTunnelManager.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\SshTunnelManager.csproj",
+        "projectUniqueName": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\SshTunnelManager.csproj",
         "projectName": "SshTunnelManager",
-        "projectPath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\SshTunnelManager.csproj",
+        "projectPath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\SshTunnelManager.csproj",
         "packagesPath": "C:\\Users\\ghost\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v2\\SshTunnelManager\\obj\\",
+        "outputPath": "C:\\Users\\ghost\\Downloads\\SshTunnelManager_v5_source\\SshTunnelManager\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

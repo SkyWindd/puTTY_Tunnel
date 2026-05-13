@@ -12,6 +12,6 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = SshTunnelManager
-build_property.ProjectDir = C:\Users\ghost\Downloads\SshTunnelManager_v2\SshTunnelManager\
+build_property.ProjectDir = C:\Users\ghost\Downloads\SshTunnelManager_v5_source\SshTunnelManager\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 

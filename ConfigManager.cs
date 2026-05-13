@@ -53,50 +53,87 @@ public class AppConfig
 
 public static class DefaultVpsProvider
 {
-    // ── Thông tin AWS VPS của bạn ──────────────────────────────────────
+    // ── Thông tin AWS VPS ─────────────────────────────────────────────
     private const string DefaultHost     = "13.229.239.111";
     private const int    DefaultPort     = 22;
     private const string DefaultUsername = "ubuntu";
-    // Đường dẫn tới file .ppk — đặt cạnh .exe, tên cố định
-    private const string DefaultKeyFile  = "default_vps.ppk";
-    // ───────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
 
+    // Path của file .ppk tạm (giải mã trong RAM, ghi ra temp folder)
+    private static string? _tempKeyPath;
+
+    /// <summary>
+    /// Trả về VpsConfig. Nếu key đang dùng encrypted mode, SshKeyFile
+    /// trỏ tới file tạm đã giải mã trong %TEMP%.
+    /// </summary>
     public static VpsConfig GetConfig() => new VpsConfig
     {
         Host       = DefaultHost,
         Port       = DefaultPort,
         Username   = DefaultUsername,
         Password   = "",
-        SshKeyFile = ResolveKeyPath(),
+        SshKeyFile = _tempKeyPath ?? ResolveKeyPath(),
     };
 
     /// <summary>
-    /// Tìm file .ppk cạnh .exe hoặc trong thư mục hiện tại.
+    /// Xác thực group password, giải mã key vào RAM → ghi file tạm.
+    /// Gọi khi khởi động nếu mode = Encrypted.
     /// </summary>
-    public static string ResolveKeyPath()
+    public static bool UnlockWithPassword(string password)
     {
-        // 1. Cạnh file .exe
-        var exeDir  = Path.GetDirectoryName(Environment.ProcessPath) ?? ".";
-        var exePath = Path.Combine(exeDir, DefaultKeyFile);
-        if (File.Exists(exePath)) return exePath;
-
-        // 2. Thư mục làm việc hiện tại
-        if (File.Exists(DefaultKeyFile)) return DefaultKeyFile;
-
-        return DefaultKeyFile; // trả về tên để báo lỗi rõ hơn
+        try
+        {
+            var keyBytes = KeyManager.DecryptToMemory(password);
+            // Xóa file tạm cũ nếu có
+            if (_tempKeyPath != null) KeyManager.DeleteTempKey(_tempKeyPath);
+            _tempKeyPath = KeyManager.WriteTempKey(keyBytes);
+            Array.Clear(keyBytes);
+            Logger.Success("Key đã được giải mã thành công.");
+            return true;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error(ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Lỗi giải mã key: {ex.Message}");
+            return false;
+        }
     }
 
-    public static bool KeyFileExists() => File.Exists(ResolveKeyPath());
+    /// <summary>Xóa file .ppk tạm khi thoát app.</summary>
+    public static void Cleanup()
+    {
+        if (_tempKeyPath == null) return;
+        KeyManager.DeleteTempKey(_tempKeyPath);
+        _tempKeyPath = null;
+    }
 
-    public static string KeyFileName => DefaultKeyFile;
+    public static bool IsUnlocked => _tempKeyPath != null && File.Exists(_tempKeyPath);
+
+    public static string ResolveKeyPath()
+    {
+        var exeDir = Path.GetDirectoryName(Environment.ProcessPath) ?? ".";
+        var path   = Path.Combine(exeDir, "default_vps.ppk");
+        if (File.Exists(path)) return path;
+        if (File.Exists("default_vps.ppk")) return "default_vps.ppk";
+        return "default_vps.ppk";
+    }
+
+    public static bool KeyFileExists()
+        => KeyManager.DetectMode() != KeyMode.Missing;
+
+    public static string KeyFileName => KeyManager.DetectMode() == KeyMode.Encrypted
+        ? "default_vps.ppk.enc" : "default_vps.ppk";
 
     public static void PrintInfo()
     {
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine($"  Default VPS : {DefaultUsername}@{DefaultHost}:{DefaultPort}");
-        Console.WriteLine($"  Key file    : {ResolveKeyPath()}  " +
-                          (KeyFileExists() ? "✔" : "✘ NOT FOUND"));
         Console.ResetColor();
+        KeyManager.PrintKeyStatus();
     }
 }
 
@@ -187,12 +224,74 @@ public static class ConfigManager
         if (cfg.VpsMode == VpsMode.Default)
         {
             DefaultVpsProvider.PrintInfo();
-            if (!DefaultVpsProvider.KeyFileExists())
+
+            var keyMode = KeyManager.DetectMode();
+
+            if (keyMode == KeyMode.Missing)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"\n  ⚠  Key file '{DefaultVpsProvider.KeyFileName}' not found.");
-                Console.WriteLine("     Place it next to SshTunnelManager.exe before starting tunnels.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n  ✘ Không tìm thấy file key!");
+                Console.WriteLine("    Đặt 'default_vps.ppk' hoặc 'default_vps.ppk.enc'");
+                Console.WriteLine("    vào cùng thư mục với SshTunnelManager.exe rồi chạy lại.");
                 Console.ResetColor();
+            }
+            else if (keyMode == KeyMode.Plain)
+            {
+                // Lần đầu — có file .ppk gốc → hỏi đặt group password rồi tự mã hóa
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\n  ℹ  Phát hiện file 'default_vps.ppk' chưa mã hóa.");
+                Console.WriteLine("     Hãy đặt Group Password để mã hóa key ngay bây giờ.");
+                Console.WriteLine("     Password này dùng chung cho cả nhóm.");
+                Console.ResetColor();
+
+                string password = SetGroupPasswordInteractive();
+                if (!string.IsNullOrEmpty(password))
+                {
+                    try
+                    {
+                        KeyManager.EncryptPlainKey(password);
+                        DefaultVpsProvider.UnlockWithPassword(password);
+
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("\n  ✔  Key đã mã hóa và mở khóa thành công!");
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("  ⚠  Hãy XÓA file 'default_vps.ppk' gốc sau khi setup xong.");
+                        Console.WriteLine("     Chỉ giữ lại 'default_vps.ppk.enc' — file này an toàn khi upload GitHub.");
+                        Console.ResetColor();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Mã hóa thất bại: {ex.Message}");
+                    }
+                }
+            }
+            else // KeyMode.Encrypted — file .enc đã có → nhập password để unlock
+            {
+                Console.WriteLine("\n  🔐 Nhập Group Password để mở khóa key VPS:");
+                bool unlocked = false;
+                for (int i = 1; i <= 3; i++)
+                {
+                    Console.Write($"  Group Password (lần {i}/3): ");
+                    var pwd = PromptPassword("");
+                    if (DefaultVpsProvider.UnlockWithPassword(pwd))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("  ✔  Mở khóa thành công!");
+                        Console.ResetColor();
+                        unlocked = true;
+                        break;
+                    }
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("  ✘  Sai mật khẩu.");
+                    Console.ResetColor();
+                }
+                if (!unlocked)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\n  ✘  Sai mật khẩu 3 lần. Chuyển sang Custom VPS.");
+                    Console.ResetColor();
+                    cfg.VpsMode = VpsMode.Custom;
+                }
             }
         }
         else
@@ -261,7 +360,7 @@ public static class ConfigManager
 
     private static string PromptPassword(string label)
     {
-        Console.Write($"{label}: ");
+        if (!string.IsNullOrEmpty(label)) Console.Write($"{label}: ");
         var sb = new System.Text.StringBuilder();
         while (true)
         {
@@ -273,4 +372,33 @@ public static class ConfigManager
         Console.WriteLine();
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Hỏi đặt Group Password mới — yêu cầu nhập 2 lần để xác nhận.
+    /// </summary>
+    private static string SetGroupPasswordInteractive()
+    {
+        Console.WriteLine("\n  Đặt Group Password (tối thiểu 6 ký tự):");
+        Console.WriteLine("  Password này dùng chung cho cả nhóm — thông báo qua Zalo/gặp trực tiếp.\n");
+
+        while (true)
+        {
+            Console.Write("  Nhập Group Password  : ");
+            var pass = PromptPassword("");
+            if (pass.Length < 6)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("  ✘ Quá ngắn, cần ít nhất 6 ký tự.");
+                Console.ResetColor();
+                continue;
+            }
+            Console.Write("  Xác nhận lại         : ");
+            var confirm = PromptPassword("");
+            if (pass == confirm) return pass;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("  ✘ Hai lần nhập không khớp, thử lại.");
+            Console.ResetColor();
+        }
+    }
 }
+
